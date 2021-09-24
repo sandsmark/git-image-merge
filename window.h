@@ -22,7 +22,6 @@ public:
         qreal w = qMax(m_remoteImage.width(), m_localImage.width()) * 2.;
         qreal h = qMax(m_remoteImage.height(), m_localImage.height());
         QSize s(w * scale, h * scale);
-//        s *= scale;
         if (s.width() < minimumWidth() || s.height() < minimumHeight()) {
             s = s.scaled(minimumSize(), Qt::KeepAspectRatioByExpanding);
         }

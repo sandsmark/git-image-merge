@@ -9,7 +9,6 @@ int main(int argc, char *argv[])
         qWarning() << "usage:" << argv[0] << "(local file) (remote file) (output file)";
         return 1;
     }
-    qDebug() << a.arguments();
     Window w;
     if (argc == 4) {
         if (!w.setLocalImage(argv[1])) {

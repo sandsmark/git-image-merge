@@ -109,7 +109,6 @@ void Window::paintEvent(QPaintEvent *)
     f.setBold(true);
     p.setFont(f);
     p.drawText(textRect, Qt::AlignCenter, m_outputFilename.isEmpty() ? name : m_outputFilename);
-//    p.drawLine(0, 19, width(), 19);
 
     QSize imgsize(width()/2 - 4, height() - 20 - 4);
     if (!m_localImage.isNull()) {
@@ -216,36 +215,5 @@ bool Window::loadImage(const QString &filename, QImage *image, QSize *size)
         qWarning() << reader.errorString();
         return false;
     }
-//    if (image->width() > maximumWidth() - 20) {
-//        *image = image->scaledToWidth(maximumWidth() - 20);
-//    }
-//    if (image->height() > maximumHeight() - 20) {
-//        *image = image->scaledToHeight(maximumHeight() - 20);
-//    }
     return true;
 }
-
-//void Window::changeSize(float delta)
-//{
-//    QSize newSize(width(), height() - 20);
-//    newSize *= delta;
-//    if (newSize.width() < minimumWidth() || newSize.height() < minimumHeight()) {
-//        newSize.scale(minimumSize(), Qt::KeepAspectRatioByExpanding);
-//    }
-//    if (newSize.width() > maximumWidth() || newSize.height() > maximumHeight() - 20) {
-//        newSize.scale(maximumSize(), Qt::KeepAspectRatio);
-//    }
-//    newSize.setHeight(newSize.height() + 20);
-//    qreal w = m_remoteImage.width() + m_localImage.width();
-//    qreal h = qMax(m_remoteImage.height(), m_localImage.height());
-//    QSize realSize(w, h + 20);
-//    realSize.scale(newSize, Qt::KeepAspectRatio);
-//    qDebug() << maximumSize() << realSize;
-//    QRect r = geometry();
-//    QPoint center = r.center();
-//    r.setSize(realSize);
-//    r.moveCenter(center);
-//    setGeometry(r);
-//}
-
-
