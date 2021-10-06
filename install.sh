@@ -1,5 +1,5 @@
 #!/bin/bash
-echo '[diff "image"]'
+echo '[diff "image"]' >> ~/.gitconfig
 echo '    command = git-image-merge' >> ~/.gitconfig
 echo '[merge "image"]' >> ~/.gitconfig
 echo '    cmd = git-image-merge \"$LOCAL\" \"$REMOTE\" \"$MERGED\"' >> ~/.gitconfig
