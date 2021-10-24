@@ -1,10 +1,12 @@
 #include <QGuiApplication>
 #include <QDebug>
+#include <QSettings>
 #include "window.h"
 
 int main(int argc, char *argv[])
 {
     QGuiApplication a(argc, argv);
+    a.setApplicationName("git-image-merge");
     if (argc < 3) {
         qWarning() << "usage:" << argv[0] << "(local file) (remote file) (output file)";
         return 1;
@@ -29,6 +31,16 @@ int main(int argc, char *argv[])
         }
     } else {
         return 1;
+    }
+    QSettings settings;
+    w.m_upscale = settings.value("scale").toBool();
+    if (w.m_upscale) {
+        QSize lastSize = settings.value("lastSize").toSize();
+        QSize size = w.calcSize();
+        if (lastSize.isValid()) {
+            size.scale(lastSize, Qt::KeepAspectRatio);
+        }
+        w.scale = w.scaleFromSize(size);
     }
     w.resize(w.calcSize());
     w.show();

@@ -4,6 +4,7 @@
 #include <QRasterWindow>
 #include <QDebug>
 #include <QImage>
+#include <QSettings>
 
 class Window : public QRasterWindow
 {
@@ -18,6 +19,15 @@ public:
 
     bool setLocalImage(const QString &filename);
     bool setRemoteImage(const QString &filename);
+
+    float scale = 1.;
+    bool m_upscale = false;
+
+    float scaleFromSize(const QSize &size) {
+        qreal w = qMax(m_remoteImage.width(), m_localImage.width()) * 2.;
+        return size.width() / w;
+    }
+
     QSize calcSize() {
         qreal w = qMax(m_remoteImage.width(), m_localImage.width()) * 2.;
         qreal h = qMax(m_remoteImage.height(), m_localImage.height());
@@ -29,13 +39,21 @@ public:
             s = s.scaled(maximumWidth(), maximumHeight() - 20, Qt::KeepAspectRatio);
         }
         scale = float(s.width()) / w;
-        return QSize(s.width(), s.height() + 20);
+        return QSize(s.width(), s.height() + m_textHeight * 2);
     }
-    void updateSize(float delta) {
-        scale = qMax(delta * scale, 0.00001f);
+
+    void updateScale(float delta) {
+        setScale(scale * delta);
+        QSettings settings;
+        settings.setValue("lastSize", m_preferredSize);
+    }
+
+    void setScale(float scale_) {
+        scale = qMax(scale_, 0.00001f);
         QRect r = geometry();
         QPoint center = r.center();
-        r.setSize(calcSize());
+        m_preferredSize = calcSize();
+        r.setSize(m_preferredSize);
         r.moveCenter(center);
         setGeometry(r);
     }
@@ -63,8 +81,10 @@ private:
     QPixmap m_background;
     QSize m_localSize;
     QSize m_remoteSize;
-    float scale = 1.;
-    bool m_upscale = false;
+
+    QSize m_preferredSize;
+
+    int m_textHeight = 20;
 };
 
 #endif // WINDOW_H

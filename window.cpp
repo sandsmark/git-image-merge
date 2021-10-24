@@ -24,6 +24,8 @@ Window::Window()
     pmp.fillRect(10, 10, 10, 10, Qt::lightGray);
     pmp.fillRect(0, 10, 10, 10, Qt::darkGray);
     pmp.fillRect(10, 0, 10, 10, Qt::darkGray);
+
+    m_textHeight = QFontMetrics(qApp->font()).height();
 }
 
 bool Window::setLocalImage(const QString &filename)
@@ -54,46 +56,47 @@ void Window::keyPressEvent(QKeyEvent *e)
         } else {
             qApp->exit(6);
         }
-        return;
-    case Qt::Key_S:
+        break;
+    case Qt::Key_S: {
         m_upscale = !m_upscale;
+        QSettings settings;
+        settings.setValue("scale", m_upscale);
         update();
-        return;
+        break;
+    }
     case Qt::Key_Up:
-        updateSize(1.1);
-        return;
+        updateScale(1.1);
+        break;
     case Qt::Key_Down:
-        updateSize(1/1.1);
-        return;
+        updateScale(1/1.1);
+        break;
     case Qt::Key_PageUp:
-        updateSize(2);
-        return;
+        updateScale(2);
+        break;
     case Qt::Key_Backspace:
         scale = 1.;
-        updateSize(1.);
-        return;
+        updateScale(1.);
+        break;
     case Qt::Key_PageDown:
-        updateSize(0.5);
-        return;
+        updateScale(0.5);
+        break;
     case Qt::Key_Left:
         m_selected = Local;
         update();
-        return;
+        break;
     case Qt::Key_Right:
         m_selected = Remote;
         update();
-        return;
+        break;
     case Qt::Key_Return:
     case Qt::Key_Enter:
         save();
         close();
-        return;
-    default:
         break;
+    default:
+        QRasterWindow::keyPressEvent(e);
+        return;
     }
-
-
-    QRasterWindow::keyPressEvent(e);
 }
 
 void Window::paintEvent(QPaintEvent *)
@@ -101,28 +104,35 @@ void Window::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.fillRect(QRect(0, 0, width(), height()), m_background);
 
-    QRect textRect(0, 0, width(), 20);
+    QRect textRect(0, 0, width(), m_textHeight);
     p.fillRect(textRect, Qt::black);
     p.setPen(Qt::white);
-    QFont f = p.font();
-    f.setPixelSize(15);
-    f.setBold(true);
-    p.setFont(f);
-    p.drawText(textRect, Qt::AlignCenter, m_outputFilename.isEmpty() ? name : m_outputFilename);
+    //QFont f = qApp->font();
+    //f.setPixelSize(25);
+    //f.setBold(true);
+    //p.setFont(f);
+    QString title = m_outputFilename.isEmpty() ? name : m_outputFilename;
+    if (!qFuzzyCompare(scale, 1.f)) {
+        title += " (" + QString::number(int(scale * 100)) + "%)";
+    }
+    p.drawText(textRect, Qt::AlignCenter, title);
 
-    QSize imgsize(width()/2 - 4, height() - 20 - 4);
+    int margins = m_outputFilename.isEmpty() ? 0 : 2;
+
+    QSize imgsize(width()/2 - margins * 2, height() - m_textHeight * 2);
     if (!m_localImage.isNull()) {
         if (m_upscale) {
-            p.drawImage(2, 22, m_localImage.scaled(imgsize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            p.drawImage(margins, m_textHeight, m_localImage.scaled(imgsize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         } else {
-            p.drawImage(2, 22, m_localImage);
+            p.drawImage(margins, m_textHeight, m_localImage.scaled(m_localImage.size() * scale, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
     if (!m_remoteImage.isNull()) {
         if (m_upscale) {
-            p.drawImage(width()/2 + 2, 22, m_remoteImage.scaled(imgsize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            p.drawImage(width()/2 + margins, m_textHeight, m_remoteImage.scaled(imgsize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         } else {
-            p.drawImage(width()/2 + 2, 22, m_remoteImage);
+            imgsize = m_remoteImage.size();
+            p.drawImage(width()/2 + margins, m_textHeight, m_remoteImage.scaled(m_remoteImage.size() * scale, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
 
@@ -146,17 +156,17 @@ void Window::paintEvent(QPaintEvent *)
         remoteText += " (" +  QString::number(m_remoteSize.width()) + "x" + QString::number(m_remoteSize.height()) + ")";
     }
     p.setPen(Qt::white);
-    localRect = p.boundingRect(localRect, Qt::AlignHCenter | Qt::AlignBottom, localText);
-    remoteRect = p.boundingRect(remoteRect, Qt::AlignHCenter | Qt::AlignBottom, remoteText);
-    p.fillRect(localRect.marginsAdded(QMargins(2, 2, 2, 2)), QColor(0, 0, 0, 100));
+    localRect = QRect(0, height() - m_textHeight, width() / 2, m_textHeight);
+    remoteRect = QRect(width()/2, height() - m_textHeight, width() / 2, m_textHeight);
+    p.fillRect(localRect, QColor(0, 0, 0, 100));
     p.drawText(localRect, Qt::AlignHCenter | Qt::AlignBottom, localText);
-    p.fillRect(remoteRect.marginsAdded(QMargins(2, 2, 2, 2)), QColor(0, 0, 0, 100));
+    p.fillRect(remoteRect, QColor(0, 0, 0, 100));
     p.drawText(remoteRect, Qt::AlignHCenter | Qt::AlignBottom, remoteText);
 }
 
 void Window::mousePressEvent(QMouseEvent *e)
 {
-    if (e->pos().y() < 20) {
+    if (e->pos().y() < m_textHeight) {
         qApp->exit(6);
         return;
     }
@@ -206,9 +216,9 @@ bool Window::loadImage(const QString &filename, QImage *image, QSize *size)
 {
     QImageReader reader(filename);
     *size = reader.size();
-    if (reader.size().width() > maximumWidth() - 20 || reader.size().height() > maximumHeight() - 20) {
+    if (reader.size().width() > maximumWidth() - m_textHeight || reader.size().height() > maximumHeight() - m_textHeight) {
         QSize newSize = reader.size();
-        newSize.scale(maximumWidth() - 20, maximumHeight() - 20, Qt::KeepAspectRatio);
+        newSize.scale(maximumWidth() - m_textHeight, maximumHeight() - m_textHeight, Qt::KeepAspectRatio);
         reader.setScaledSize(newSize);
     }
     if (!reader.read(image)) {
