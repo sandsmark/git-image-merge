@@ -11,10 +11,12 @@ class Window : public QRasterWindow
     Q_OBJECT
 public:
     Window();
+    ~Window();
 
     QString m_outputFilename;
     QString name;
 
+    int sock = -1;
     bool copied = false;
 
     bool setLocalImage(const QString &filename);
@@ -58,11 +60,17 @@ public:
         setGeometry(r);
     }
 
+public slots:
+    void ensureVisible();
+
 protected:
     void keyPressEvent(QKeyEvent *) override;
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *e) override;
     void mouseDoubleClickEvent(QMouseEvent *) override;
+    void mouseMoveEvent(QMouseEvent *) override;
+    void moveEvent(QMoveEvent *) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     enum Which {
@@ -85,6 +93,8 @@ private:
     QSize m_preferredSize;
 
     int m_textHeight = 20;
+
+    QPoint m_lastMousePos;
 };
 
 #endif // WINDOW_H

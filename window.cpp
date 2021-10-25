@@ -6,6 +6,10 @@
 #include <QDebug>
 #include <QPainter>
 #include <QScreen>
+#include <QFontDatabase>
+#include <QRandomGenerator>
+
+#include <unistd.h>
 
 #define MAX_SIZE 5000
 
@@ -25,7 +29,21 @@ Window::Window()
     pmp.fillRect(0, 10, 10, 10, Qt::darkGray);
     pmp.fillRect(10, 0, 10, 10, Qt::darkGray);
 
-    m_textHeight = QFontMetrics(qApp->font()).height();
+    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPointSize(15);
+    m_textHeight = QFontMetrics(font).height();
+    qApp->setFont(font);
+
+    QMetaObject::invokeMethod(this, &Window::ensureVisible, Qt::QueuedConnection);
+}
+Window::~Window()
+{
+    if (sock != -1) {
+        char tmp = '\0';
+        ::write(sock, &tmp, 1);
+        ::close(sock);
+        sock = -1;
+    }
 }
 
 bool Window::setLocalImage(const QString &filename)
@@ -64,6 +82,29 @@ void Window::keyPressEvent(QKeyEvent *e)
         update();
         break;
     }
+    case Qt::Key_D:
+        if (sock != -1) {
+            QSettings settings;
+            // TODO: more clever layout
+            const QRect screenGeometry = screen()->availableGeometry();
+            QPoint p = position();
+            if (p.y() + 10 > screenGeometry.height() - height() * 2) {
+                p.setY(0);
+                if (p.x() + 10 > screenGeometry.width() - width() * 2) {
+                    p.setX(0);
+                } else {
+                    p.setX(p.x() + width() + 10);
+                }
+            } else {
+                p.setY(p.y() + height() + 10);
+            }
+            settings.setValue("lastposition", p);
+            char tmp = '\0';
+            ::write(sock, &tmp, 1);
+            ::close(sock);
+            sock = -1;
+        }
+        break;
     case Qt::Key_Up:
         updateScale(1.1);
         break;
@@ -107,10 +148,7 @@ void Window::paintEvent(QPaintEvent *)
     QRect textRect(0, 0, width(), m_textHeight);
     p.fillRect(textRect, Qt::black);
     p.setPen(Qt::white);
-    //QFont f = qApp->font();
-    //f.setPixelSize(25);
-    //f.setBold(true);
-    //p.setFont(f);
+
     QString title = m_outputFilename.isEmpty() ? name : m_outputFilename;
     if (!qFuzzyCompare(scale, 1.f)) {
         title += " (" + QString::number(int(scale * 100)) + "%)";
@@ -158,16 +196,16 @@ void Window::paintEvent(QPaintEvent *)
     p.setPen(Qt::white);
     localRect = QRect(0, height() - m_textHeight, width() / 2, m_textHeight);
     remoteRect = QRect(width()/2, height() - m_textHeight, width() / 2, m_textHeight);
-    p.fillRect(localRect, QColor(0, 0, 0, 100));
+    p.fillRect(localRect, QColor(0, 0, 0, 192));
     p.drawText(localRect, Qt::AlignHCenter | Qt::AlignBottom, localText);
-    p.fillRect(remoteRect, QColor(0, 0, 0, 100));
+    p.fillRect(remoteRect, QColor(0, 0, 0, 192));
     p.drawText(remoteRect, Qt::AlignHCenter | Qt::AlignBottom, remoteText);
 }
 
 void Window::mousePressEvent(QMouseEvent *e)
 {
+    m_lastMousePos = e->globalPos();
     if (e->pos().y() < m_textHeight) {
-        qApp->exit(6);
         return;
     }
 
@@ -182,6 +220,11 @@ void Window::mousePressEvent(QMouseEvent *e)
 
 void Window::mouseDoubleClickEvent(QMouseEvent *e)
 {
+    if (e->pos().y() < m_textHeight) {
+        qApp->exit(6);
+        return;
+    }
+
     if (e->pos().x() > width() / 2) {
         m_selected = Remote;
     } else {
@@ -189,6 +232,47 @@ void Window::mouseDoubleClickEvent(QMouseEvent *e)
     }
     save();
     exit(0);
+}
+void Window::mouseMoveEvent(QMouseEvent *e)
+{
+    if (!e->buttons()) {
+        return;
+    }
+    const QPoint delta = e->globalPos() - m_lastMousePos;
+    setPosition(position() + delta);
+    m_lastMousePos = e->globalPos();
+}
+
+void Window::resizeEvent(QResizeEvent *event)
+{
+    QWindow::resizeEvent(event);
+    QMetaObject::invokeMethod(this, &Window::ensureVisible, Qt::QueuedConnection);
+}
+
+void Window::moveEvent(QMoveEvent *e)
+{
+    QSettings settings;
+    settings.setValue("lastposition", e->pos());
+
+    QWindow::moveEvent(e);
+    QMetaObject::invokeMethod(this, &Window::ensureVisible, Qt::QueuedConnection);
+}
+
+void Window::ensureVisible()
+{
+    const QRect screenGeometry = screen()->availableGeometry();
+    QRect newGeometry = geometry();
+    if (geometry().left() > screenGeometry.right() - 50) {
+        newGeometry.translate(-50, 0);
+    } else if (geometry().right() < screenGeometry.left() + 50) {
+        newGeometry.translate(50, 0);
+    }
+    if (geometry().top() > screenGeometry.bottom() - 50) {
+        newGeometry.translate(0, -50);
+    } else if (geometry().bottom() < screenGeometry.top() + 50) {
+        newGeometry.translate(0, 50);
+    }
+    setPosition(newGeometry.topLeft());
 }
 
 void Window::save()
